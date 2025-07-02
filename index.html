@@ -71,6 +71,7 @@
       border-radius: 15px;
       margin-bottom: 15px;
       border: 3px solid #38a169;
+      position: relative;
     }
     #fileInputs {
       margin-bottom: 10px;
@@ -90,8 +91,18 @@
     }
     #scroll-reminder {
       margin-top: 15px;
-      color: #666;
-      font-size: 14px;
+      color: #d97706;
+      font-size: 16px;
+      font-weight: bold;
+      animation: bounce 1s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-5px);
+      }
     }
   </style>
 </head>
@@ -123,7 +134,7 @@
   <button id="erase-btn">Erase Mode: OFF</button>
   <button id="generate-btn">Generate Battle Card</button>
 
-  <div id="scroll-reminder" style="display:none;">Scroll down to see your Champion Card!</div>
+  <div id="scroll-reminder" style="display:none;">⬇️ Please scroll down to see your Champion Card ⬇️</div>
 
   <div id="result-card" style="display:none;">
     <img id="result-img" alt="Champion" />
@@ -144,35 +155,35 @@
     const saveNameBtn = document.getElementById('save-name-btn');
     const finalName = document.getElementById('final-name');
     const scrollReminder = document.getElementById('scroll-reminder');
-    const eraseBtn = document.getElementById('erase-btn');
-    const colorButtons = document.querySelectorAll('.color-btn');
 
     let currentBattlePower = 0;
-    let imageLoaded = true; // true by default for now
+    let imageLoaded = true;
+    let isDrawing = false;
     let eraseMode = false;
     let penColor = 'rgba(255,0,0,0.5)';
+    const doodleLayer = document.createElement('canvas');
+    doodleLayer.width = canvas.width;
+    doodleLayer.height = canvas.height;
+    const doodleCtx = doodleLayer.getContext('2d');
 
-    // Color select
-    colorButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        colorButtons.forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        penColor = btn.getAttribute('data-color');
-        eraseMode = false;
-        eraseBtn.classList.remove('active');
-        eraseBtn.textContent = 'Erase Mode: OFF';
-      });
-    });
-
-    // Eraser toggle
+    const eraseBtn = document.getElementById('erase-btn');
     eraseBtn.addEventListener('click', () => {
       eraseMode = !eraseMode;
       eraseBtn.classList.toggle('active');
       eraseBtn.textContent = eraseMode ? 'Erase Mode: ON' : 'Erase Mode: OFF';
     });
 
-    // Drawing
-    let painting = false;
+    document.querySelectorAll('.color-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        penColor = btn.dataset.color;
+        eraseMode = false;
+        eraseBtn.classList.remove('active');
+        eraseBtn.textContent = 'Erase Mode: OFF';
+      });
+    });
+
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
@@ -180,54 +191,75 @@
       return { x, y };
     }
 
-    function startDraw(e) {
-      painting = true;
-      draw(e);
-    }
-
-    function endDraw() {
-      painting = false;
-      ctx.beginPath();
-    }
-
     function draw(e) {
-      if (!painting) return;
+      if (!isDrawing) return;
       const pos = getPos(e);
       if (eraseMode) {
-        ctx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
+        doodleCtx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
       } else {
-        ctx.fillStyle = penColor;
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
-        ctx.fill();
+        doodleCtx.fillStyle = penColor;
+        doodleCtx.beginPath();
+        doodleCtx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+        doodleCtx.fill();
       }
-      e.preventDefault();
+      renderCombined();
     }
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mouseup', endDraw);
+    function renderCombined() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(doodleLayer, 0, 0);
+    }
+
+    canvas.addEventListener('mousedown', e => { isDrawing = true; draw(e); });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
     canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('touchstart', startDraw);
-    canvas.addEventListener('touchend', endDraw);
+    canvas.addEventListener('touchstart', e => { isDrawing = true; draw(e); });
+    canvas.addEventListener('touchend', () => isDrawing = false);
     canvas.addEventListener('touchmove', draw);
 
-    // Generate battle card
+    let backgroundImg = new Image();
+
+    function loadImage(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        backgroundImg.onload = () => {
+          canvas.width = doodleLayer.width = backgroundImg.width > 400 ? 400 : backgroundImg.width;
+          canvas.height = doodleLayer.height = backgroundImg.height > 400 ? 400 : backgroundImg.height;
+          renderCombined();
+          imageLoaded = true;
+        };
+        backgroundImg.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    document.getElementById('btnGallery').onclick = () => document.getElementById('uploadGallery').click();
+    document.getElementById('btnCamera').onclick = () => document.getElementById('uploadCamera').click();
+    document.getElementById('uploadGallery').addEventListener('change', e => loadImage(e.target.files[0]));
+    document.getElementById('uploadCamera').addEventListener('change', e => loadImage(e.target.files[0]));
+
     document.getElementById('generate-btn').addEventListener('click', () => {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (!imageLoaded) {
+        alert('Please upload an image first!');
+        return;
+      }
+      const imgData = doodleCtx.getImageData(0, 0, doodleLayer.width, doodleLayer.height);
       const data = imgData.data;
       let doodlePixels = 0;
-
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        if (r + g + b > 100) doodlePixels++;
+        const g = data[i+1];
+        const b = data[i+2];
+        if (r + g + b > 100) {
+          doodlePixels++;
+        }
       }
-
-      const maxPixels = canvas.width * canvas.height;
+      const maxPixels = doodleLayer.width * doodleLayer.height;
       const ratio = doodlePixels / maxPixels;
       currentBattlePower = Math.max(1, Math.min(999, Math.floor(ratio * 999)));
 
+      renderCombined();
       resultImg.src = canvas.toDataURL();
       battlePowerEl.textContent = `Battle Power: ${currentBattlePower}`;
       finalName.textContent = '';
@@ -243,32 +275,6 @@
       }
       finalName.textContent = `Champion Name: ${name}`;
     });
-
-    // Photo upload (gallery / camera)
-    document.getElementById('btnGallery').onclick = () => document.getElementById('uploadGallery').click();
-    document.getElementById('btnCamera').onclick = () => document.getElementById('uploadCamera').click();
-
-    function loadImage(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width > 400 ? 400 : img.width;
-          canvas.height = img.height > 400 ? 400 : img.height;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          imageLoaded = true;
-          resultCard.style.display = 'none';
-          scrollReminder.style.display = 'none';
-        };
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    document.getElementById('uploadGallery').addEventListener('change', e => loadImage(e.target.files[0]));
-    document.getElementById('uploadCamera').addEventListener('change', e => loadImage(e.target.files[0]));
   </script>
-
 </body>
 </html>
