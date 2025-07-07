@@ -71,7 +71,6 @@
       border-radius: 15px;
       margin-bottom: 15px;
       border: 3px solid #38a169;
-      position: relative;
     }
     #fileInputs {
       margin-bottom: 10px;
@@ -84,7 +83,7 @@
       border-radius: 8px;
       border: 1px solid #ccc;
     }
-    #save-name-btn {
+    #save-name-btn, #download-btn {
       margin-top: 10px;
       background: #3182ce;
       color: white;
@@ -97,12 +96,19 @@
       animation: bounce 1s infinite;
     }
     @keyframes bounce {
-      0%, 100% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-5px);
-      }
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .links {
+      margin-top: 30px;
+    }
+    .links a {
+      display: block;
+      margin: 10px 0;
+      font-weight: bold;
+      font-size: 18px;
+      color: #2f855a;
+      text-decoration: none;
     }
   </style>
 </head>
@@ -140,6 +146,12 @@
   <input type="text" id="name-input" placeholder="Enter champion name" />
   <br />
   <button id="save-name-btn">Save Name</button>
+  <button id="download-btn">📥 Download Your Champion</button>
+</div>
+
+<div class="links">
+  <a href="https://docs.google.com/forms/d/1BEPoq4YHihQgfHlGBMfUtfKz-o_ME2RdAxfc_C_yCRY" target="_blank">📤 Submit Your Champion</a>
+  <a href="https://docs.google.com/presentation/d/16wUWjLB8ifswLPRflwd45V3ye6KUjNGP5s6Kbley0Vo/edit?slide=id.p#slide=id.p" target="_blank">🌟 View the Champion Gallery</a>
 </div>
 
 <script>
@@ -149,6 +161,7 @@
   const resultImg = document.getElementById('result-img');
   const nameInput = document.getElementById('name-input');
   const saveNameBtn = document.getElementById('save-name-btn');
+  const downloadBtn = document.getElementById('download-btn');
   const scrollReminder = document.getElementById('scroll-reminder');
 
   let imageLoaded = true;
@@ -280,6 +293,13 @@
     currentChampionName = name;
     renderCombined();
     resultImg.src = canvas.toDataURL("image/png");
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = `${currentChampionName || 'champion'}-card.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   });
 </script>
 
