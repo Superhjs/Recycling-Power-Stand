@@ -108,173 +108,180 @@
 </head>
 <body>
 
-  <h1>Choose your Champion</h1>
+<h1>Choose your Champion</h1>
 
-  <div id="fileInputs">
-    <button id="btnGallery">Choose from Gallery</button>
-    <button id="btnCamera">Take Photo</button>
+<div id="fileInputs">
+  <button id="btnGallery">Choose from Gallery</button>
+  <button id="btnCamera">Take Photo</button>
+  <input type="file" accept="image/*" id="uploadGallery" style="display:none" />
+  <input type="file" accept="image/*" capture="environment" id="uploadCamera" style="display:none" />
+</div>
 
-    <input type="file" accept="image/*" id="uploadGallery" style="display:none" />
-    <input type="file" accept="image/*" capture="environment" id="uploadCamera" style="display:none" />
+<canvas id="canvas" width="300" height="300"></canvas>
+
+<div class="controls">
+  <span>Select Color:</span>
+  <div id="colors">
+    <div class="color-btn selected" style="background: rgba(255,0,0,0.5);" data-color="rgba(255,0,0,0.5)"></div>
+    <div class="color-btn" style="background: rgba(0,128,0,0.5);" data-color="rgba(0,128,0,0.5)"></div>
+    <div class="color-btn" style="background: rgba(0,0,255,0.5);" data-color="rgba(0,0,255,0.5)"></div>
+    <div class="color-btn" style="background: rgba(255,255,0,0.5);" data-color="rgba(255,255,0,0.5)"></div>
+    <div class="color-btn" style="background: rgba(128,0,128,0.5);" data-color="rgba(128,0,128,0.5)"></div>
   </div>
+</div>
 
-  <canvas id="canvas" width="300" height="300"></canvas>
+<button id="erase-btn">Erase Mode: OFF</button>
+<button id="generate-btn">Generate Battle Card</button>
 
-  <div class="controls">
-    <span>Select Color:</span>
-    <div id="colors">
-      <div class="color-btn selected" style="background: rgba(255,0,0,0.5);" data-color="rgba(255,0,0,0.5)"></div>
-      <div class="color-btn" style="background: rgba(0,128,0,0.5);" data-color="rgba(0,128,0,0.5)"></div>
-      <div class="color-btn" style="background: rgba(0,0,255,0.5);" data-color="rgba(0,0,255,0.5)"></div>
-      <div class="color-btn" style="background: rgba(255,255,0,0.5);" data-color="rgba(255,255,0,0.5)"></div>
-      <div class="color-btn" style="background: rgba(128,0,128,0.5);" data-color="rgba(128,0,128,0.5)"></div>
-    </div>
-  </div>
+<div id="scroll-reminder" style="display:none;">⬇️ Please scroll down to see your Champion Card ⬇️</div>
 
-  <button id="erase-btn">Erase Mode: OFF</button>
-  <button id="generate-btn">Generate Battle Card</button>
+<div id="result-card" style="display:none;">
+  <img id="result-img" alt="Champion" />
+  <input type="text" id="name-input" placeholder="Enter champion name" />
+  <br />
+  <button id="save-name-btn">Save Name</button>
+</div>
 
-  <div id="scroll-reminder" style="display:none;">⬇️ Please scroll down to see your Champion Card ⬇️</div>
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const resultCard = document.getElementById('result-card');
+  const resultImg = document.getElementById('result-img');
+  const nameInput = document.getElementById('name-input');
+  const saveNameBtn = document.getElementById('save-name-btn');
+  const scrollReminder = document.getElementById('scroll-reminder');
 
-  <div id="result-card" style="display:none;">
-    <img id="result-img" alt="Champion" />
-    <h3 id="final-name" style="margin-top:15px; color:#2f855a;"></h3>
-    <h2 id="battle-power"></h2>
-    <input type="text" id="name-input" placeholder="Enter champion name" />
-    <br />
-    <button id="save-name-btn">Save Name</button>
-  </div>
+  let imageLoaded = true;
+  let penColor = 'rgba(255,0,0,0.5)';
+  let eraseMode = false;
+  let isDrawing = false;
+  let currentChampionName = '';
+  let currentBattlePower = 0;
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const resultCard = document.getElementById('result-card');
-    const resultImg = document.getElementById('result-img');
-    const battlePowerEl = document.getElementById('battle-power');
-    const nameInput = document.getElementById('name-input');
-    const saveNameBtn = document.getElementById('save-name-btn');
-    const finalName = document.getElementById('final-name');
-    const scrollReminder = document.getElementById('scroll-reminder');
+  const doodleLayer = document.createElement('canvas');
+  doodleLayer.width = canvas.width;
+  doodleLayer.height = canvas.height;
+  const doodleCtx = doodleLayer.getContext('2d');
 
-    let currentBattlePower = 0;
-    let imageLoaded = true;
-    let isDrawing = false;
-    let eraseMode = false;
-    let penColor = 'rgba(255,0,0,0.5)';
-    const doodleLayer = document.createElement('canvas');
-    doodleLayer.width = canvas.width;
-    doodleLayer.height = canvas.height;
-    const doodleCtx = doodleLayer.getContext('2d');
+  const eraseBtn = document.getElementById('erase-btn');
+  eraseBtn.addEventListener('click', () => {
+    eraseMode = !eraseMode;
+    eraseBtn.classList.toggle('active');
+    eraseBtn.textContent = eraseMode ? 'Erase Mode: ON' : 'Erase Mode: OFF';
+  });
 
-    const eraseBtn = document.getElementById('erase-btn');
-    eraseBtn.addEventListener('click', () => {
-      eraseMode = !eraseMode;
-      eraseBtn.classList.toggle('active');
-      eraseBtn.textContent = eraseMode ? 'Erase Mode: ON' : 'Erase Mode: OFF';
+  document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      penColor = btn.dataset.color;
+      eraseMode = false;
+      eraseBtn.classList.remove('active');
+      eraseBtn.textContent = 'Erase Mode: OFF';
     });
+  });
 
-    document.querySelectorAll('.color-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        penColor = btn.dataset.color;
-        eraseMode = false;
-        eraseBtn.classList.remove('active');
-        eraseBtn.textContent = 'Erase Mode: OFF';
-      });
-    });
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x, y };
+  }
 
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-      return { x, y };
+  function draw(e) {
+    if (!isDrawing) return;
+    const pos = getPos(e);
+    if (eraseMode) {
+      doodleCtx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
+    } else {
+      doodleCtx.fillStyle = penColor;
+      doodleCtx.beginPath();
+      doodleCtx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+      doodleCtx.fill();
     }
+    renderCombined();
+  }
 
-    function draw(e) {
-      if (!isDrawing) return;
-      const pos = getPos(e);
-      if (eraseMode) {
-        doodleCtx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
-      } else {
-        doodleCtx.fillStyle = penColor;
-        doodleCtx.beginPath();
-        doodleCtx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
-        doodleCtx.fill();
-      }
-      renderCombined();
+  function renderCombined() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(doodleLayer, 0, 0);
+    if (currentChampionName && currentBattlePower) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Champion: ${currentChampionName} | Power: ${currentBattlePower}`, canvas.width / 2, canvas.height - 20);
     }
+  }
 
-    function renderCombined() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-      ctx.drawImage(doodleLayer, 0, 0);
-    }
+  canvas.addEventListener('mousedown', e => { isDrawing = true; draw(e); });
+  canvas.addEventListener('mouseup', () => isDrawing = false);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('touchstart', e => { isDrawing = true; draw(e); });
+  canvas.addEventListener('touchend', () => isDrawing = false);
+  canvas.addEventListener('touchmove', draw);
 
-    canvas.addEventListener('mousedown', e => { isDrawing = true; draw(e); });
-    canvas.addEventListener('mouseup', () => isDrawing = false);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('touchstart', e => { isDrawing = true; draw(e); });
-    canvas.addEventListener('touchend', () => isDrawing = false);
-    canvas.addEventListener('touchmove', draw);
+  let backgroundImg = new Image();
 
-    let backgroundImg = new Image();
-
-    function loadImage(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        backgroundImg.onload = () => {
-          canvas.width = doodleLayer.width = backgroundImg.width > 400 ? 400 : backgroundImg.width;
-          canvas.height = doodleLayer.height = backgroundImg.height > 400 ? 400 : backgroundImg.height;
-          renderCombined();
-          imageLoaded = true;
-        };
-        backgroundImg.src = reader.result;
+  function loadImage(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      backgroundImg.onload = () => {
+        canvas.width = doodleLayer.width = backgroundImg.width > 400 ? 400 : backgroundImg.width;
+        canvas.height = doodleLayer.height = backgroundImg.height > 400 ? 400 : backgroundImg.height;
+        renderCombined();
+        imageLoaded = true;
       };
-      reader.readAsDataURL(file);
+      backgroundImg.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById('btnGallery').onclick = () => document.getElementById('uploadGallery').click();
+  document.getElementById('btnCamera').onclick = () => document.getElementById('uploadCamera').click();
+  document.getElementById('uploadGallery').addEventListener('change', e => loadImage(e.target.files[0]));
+  document.getElementById('uploadCamera').addEventListener('change', e => loadImage(e.target.files[0]));
+
+  document.getElementById('generate-btn').addEventListener('click', () => {
+    if (!imageLoaded) {
+      alert('Please upload an image first!');
+      return;
     }
 
-    document.getElementById('btnGallery').onclick = () => document.getElementById('uploadGallery').click();
-    document.getElementById('btnCamera').onclick = () => document.getElementById('uploadCamera').click();
-    document.getElementById('uploadGallery').addEventListener('change', e => loadImage(e.target.files[0]));
-    document.getElementById('uploadCamera').addEventListener('change', e => loadImage(e.target.files[0]));
-
-    document.getElementById('generate-btn').addEventListener('click', () => {
-      if (!imageLoaded) {
-        alert('Please upload an image first!');
-        return;
+    const imgData = doodleCtx.getImageData(0, 0, doodleLayer.width, doodleLayer.height);
+    const data = imgData.data;
+    let doodlePixels = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+      if (r + g + b > 100) {
+        doodlePixels++;
       }
-      const imgData = doodleCtx.getImageData(0, 0, doodleLayer.width, doodleLayer.height);
-      const data = imgData.data;
-      let doodlePixels = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i+1];
-        const b = data[i+2];
-        if (r + g + b > 100) {
-          doodlePixels++;
-        }
-      }
-      const maxPixels = doodleLayer.width * doodleLayer.height;
-      const ratio = doodlePixels / maxPixels;
-      currentBattlePower = Math.max(1, Math.min(999, Math.floor(ratio * 999)));
+    }
+    const maxPixels = doodleLayer.width * doodleLayer.height;
+    const ratio = doodlePixels / maxPixels;
+    currentBattlePower = Math.max(1, Math.min(999, Math.floor(ratio * 999)));
 
-      renderCombined();
-      resultImg.src = canvas.toDataURL();
-      battlePowerEl.textContent = `Battle Power: ${currentBattlePower}`;
-      finalName.textContent = '';
-      resultCard.style.display = 'block';
-      scrollReminder.style.display = 'block';
-    });
+    renderCombined();
+    resultImg.src = canvas.toDataURL("image/png");
+    resultCard.style.display = 'block';
+    scrollReminder.style.display = 'block';
+  });
 
-    saveNameBtn.addEventListener('click', () => {
-      const name = nameInput.value.trim();
-      if (name === '') {
-        alert('Please enter a name for your champion!');
-        return;
-      }
-      finalName.textContent = `Champion Name: ${name}`;
-    });
-  </script>
+  saveNameBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (name === '') {
+      alert('Please enter a name for your champion!');
+      return;
+    }
+    currentChampionName = name;
+    renderCombined();
+    resultImg.src = canvas.toDataURL("image/png");
+  });
+</script>
+
 </body>
 </html>
